@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>English Trainer — голосовой тренажёр</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">🎧 English Trainer</div>
+    <div class="stats" id="stats">
+      <span class="stat" title="Всего слов">📚 <b id="stTotal">0</b></span>
+      <span class="stat known" title="Выучено">✅ <b id="stKnown">0</b></span>
+      <span class="stat learning" title="В процессе">🔁 <b id="stLearning">0</b></span>
+      <span class="stat due" title="Пора повторить">⏰ <b id="stDue">0</b></span>
+    </div>
+    <button class="icon-btn" id="settingsBtn" title="Настройки">⚙️</button>
+  </header>
+
+  <main class="stage">
+    <div class="orb idle" id="orb">
+      <div class="orb-core"></div>
+    </div>
+
+    <button class="start-btn" id="startBtn">Начать диалог</button>
+    <div class="status" id="statusText">Нажми «Начать», чтобы поговорить</div>
+    <div class="interim" id="interim"></div>
+
+    <div class="log" id="log"></div>
+  </main>
+
+  <!-- Панель настроек -->
+  <div class="overlay hidden" id="overlay"></div>
+  <aside class="settings hidden" id="settingsPanel">
+    <div class="settings-head">
+      <h2>Настройки</h2>
+      <button class="icon-btn" id="closeSettings">✕</button>
+    </div>
+
+    <label class="field">
+      <span>Ключ Mistral API</span>
+      <input type="password" id="f_key" placeholder="вставь ключ (хранится только в браузере)" autocomplete="off" />
+      <small>Получи на console.mistral.ai. В репозиторий не попадает.</small>
+    </label>
+
+    <label class="field">
+      <span>Адрес локального TTS (XTTS)</span>
+      <input type="text" id="f_ttsUrl" placeholder="http://localhost:8020" />
+      <small id="ttsStatus" class="muted">статус не проверен</small>
+    </label>
+
+    <label class="field">
+      <span>Голос (диктор XTTS)</span>
+      <div class="row">
+        <select id="f_speaker"></select>
+        <button class="btn small" id="refreshSpeakers">⟳</button>
+        <button class="btn small" id="testVoice">▶ тест</button>
+      </div>
+    </label>
+
+    <label class="field">
+      <span>Язык распознавания микрофона</span>
+      <select id="f_recog">
+        <option value="en-US">English (US) — для ответов словами</option>
+        <option value="en-GB">English (UK)</option>
+        <option value="ru-RU">Русский — если хочешь болтать по-русски</option>
+      </select>
+    </label>
+
+    <label class="field">
+      <span>Доля новых слов: <b id="ratioVal">30</b>%</span>
+      <input type="range" id="f_ratio" min="0" max="100" step="10" />
+      <small>Остальное — повторение уже пройденного.</small>
+    </label>
+
+    <div class="settings-section">
+      <h3>Память</h3>
+      <div class="row">
+        <button class="btn" id="exportBtn">⬇ Экспорт</button>
+        <button class="btn" id="importBtn">⬆ Импорт</button>
+        <button class="btn danger" id="wipeBtn">🗑 Очистить</button>
+      </div>
+      <input type="file" id="importFile" accept="application/json" hidden />
+    </div>
+
+    <div class="settings-foot">
+      <button class="btn primary" id="saveSettings">Сохранить</button>
+    </div>
+  </aside>
+
+  <script type="module" src="./app.js"></script>
+</body>
+</html>

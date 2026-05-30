@@ -21,3 +21,6 @@ Thumbs.db
 
 # Claude Code локальные настройки
 .claude/
+
+# Логи установки сервера
+server/*.log

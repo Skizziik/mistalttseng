@@ -1,11 +1,11 @@
 // Главный модуль: связывает интерфейс, диалоговый цикл, голос, слух и память.
 import { settings, updateSettings } from './js/config.js';
-import { chatJSON, generateWord } from './js/mistral.js';
+import { chatJSON } from './js/mistral.js';
 import * as TTS from './js/tts.js';
 import * as STT from './js/stt.js';
 import * as Mem from './js/memory.js';
 import {
-  SYSTEM_PROMPT, introDirective, askDirective, gradeDirective,
+  SYSTEM_PROMPT, introDirective, askDirective, gradeDirective, newAskDirective,
 } from './js/prompts.js';
 
 // ---------- DOM ----------
@@ -73,19 +73,28 @@ function trimHistory() {
 // ---------- Цикл диалога ----------
 async function turnAsk(isIntro) {
   const pick = Mem.pickNext();
-  let word;
+  let directive, expectWord = false;
   if (pick.type === 'new') {
-    setOrb('thinking');
-    setStatus('подбираю слово…');
-    const w = await generateWord(Mem.seenEnglish(), Mem.recentThemes());
-    word = Mem.addWord(w.en, w.ru, w.theme);
+    directive = newAskDirective(Mem.seenEnglish(), Mem.recentThemes(), isIntro);
+    expectWord = true;
+  } else {
+    directive = isIntro ? introDirective(pick.word.ru) : askDirective(pick.word.ru);
+  }
+
+  const res = await ask(directive);
+
+  let word;
+  if (expectWord) {
+    if (!res.en || !res.ru) {
+      // модель не дала слово — мягко пробуем ещё раз обычной генерацией
+      throw new Error('Модель не вернула новое слово (en/ru). Попробуй ещё раз.');
+    }
+    word = Mem.addWord(String(res.en).toLowerCase(), String(res.ru).toLowerCase(), (res.theme || '').toLowerCase());
     Mem.markAsked(word.en);
   } else {
     word = pick.word;
   }
   currentTarget = word;
-  const directive = isIntro ? introDirective(word.ru) : askDirective(word.ru);
-  const res = await ask(directive);
   await say(res.say);
 }
 

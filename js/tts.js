@@ -1,13 +1,19 @@
 // Клиент локального XTTS-сервера. Никаких фолбэков — только XTTS.
-// Текст с миксом языков (рус + англ) режется на куски по алфавиту,
-// каждый озвучивается на своём языке тем же голосом, и куски играют по порядку.
+// Фраза с миксом языков режется на куски по алфавиту (рус/англ), каждый кусок
+// синтезируется на своём языке, затем все куски СКЛЕИВАЮТСЯ в один аудио-буфер и
+// проигрываются единым потоком — без пауз и «прыжков» между кусками.
 
 import { settings } from './config.js';
 
+let audioCtx = null;
+let currentSource = null;
 let stopped = false;
-let currentAudio = null;
 
-// Проверка, что локальный сервер жив. Бросает ошибку, если нет.
+function ctx() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return audioCtx;
+}
+
 export async function health() {
   const res = await fetch(settings.ttsUrl + '/health', { method: 'GET' });
   if (!res.ok) throw new Error('TTS health ' + res.status);
@@ -21,23 +27,36 @@ export async function getSpeakers() {
   return d.speakers || [];
 }
 
-// Озвучить текст. Возвращает промис, который резолвится после полного проигрывания.
+// Озвучить текст. Промис резолвится после полного проигрывания.
 export async function speak(text) {
   stopped = false;
-  const segments = splitByLang(text);
-  for (const seg of segments) {
-    if (stopped) break;
+  const segs = splitByLang(text);
+  if (!segs.length) return;
+
+  const c = ctx();
+  if (c.state === 'suspended') await c.resume();
+
+  // Синтез каждого куска -> декодирование в AudioBuffer.
+  const buffers = [];
+  for (const seg of segs) {
+    if (stopped) return;
     const blob = await synth(seg.text, seg.lang);
-    if (stopped) break;
-    await playBlob(blob);
+    if (stopped) return;
+    const arr = await blob.arrayBuffer();
+    const buf = await c.decodeAudioData(arr);
+    buffers.push(buf);
   }
+  if (stopped || !buffers.length) return;
+
+  const combined = concatBuffers(c, buffers);
+  await playBuffer(c, combined);
 }
 
 export function stopSpeaking() {
   stopped = true;
-  if (currentAudio) {
-    try { currentAudio.pause(); } catch {}
-    currentAudio = null;
+  if (currentSource) {
+    try { currentSource.onended = null; currentSource.stop(); } catch {}
+    currentSource = null;
   }
 }
 
@@ -54,14 +73,33 @@ async function synth(text, lang) {
   return res.blob();
 }
 
-function playBlob(blob) {
-  return new Promise((resolve, reject) => {
-    const url = URL.createObjectURL(blob);
-    const audio = new Audio(url);
-    currentAudio = audio;
-    audio.onended = () => { URL.revokeObjectURL(url); resolve(); };
-    audio.onerror = () => { URL.revokeObjectURL(url); reject(new Error('audio playback error')); };
-    audio.play().catch(reject);
+// Склейка нескольких AudioBuffer в один (с маленькой паузой между кусками для разборчивости).
+function concatBuffers(c, buffers) {
+  const gap = Math.floor(c.sampleRate * 0.06); // 60 мс между кусками
+  const channels = Math.max(...buffers.map(b => b.numberOfChannels));
+  let total = 0;
+  for (const b of buffers) total += b.length + gap;
+  const out = c.createBuffer(channels, total, c.sampleRate);
+  for (let ch = 0; ch < channels; ch++) {
+    const data = out.getChannelData(ch);
+    let off = 0;
+    for (const b of buffers) {
+      const src = b.getChannelData(Math.min(ch, b.numberOfChannels - 1));
+      data.set(src, off);
+      off += b.length + gap;
+    }
+  }
+  return out;
+}
+
+function playBuffer(c, buffer) {
+  return new Promise((resolve) => {
+    const src = c.createBufferSource();
+    src.buffer = buffer;
+    src.connect(c.destination);
+    currentSource = src;
+    src.onended = () => { if (currentSource === src) currentSource = null; resolve(); };
+    src.start();
   });
 }
 
@@ -77,17 +115,12 @@ export function splitByLang(text) {
     else if (/[A-Za-z]/.test(tok)) lang = 'en';
 
     if (lang === null) {
-      // пунктуация/пробел/цифры — приклеиваем к текущему сегменту
       if (cur) cur.text += tok;
       else cur = { lang: 'ru', text: tok };
       continue;
     }
-    if (cur && cur.lang === lang) {
-      cur.text += tok;
-    } else {
-      if (cur) segs.push(cur);
-      cur = { lang, text: tok };
-    }
+    if (cur && cur.lang === lang) cur.text += tok;
+    else { if (cur) segs.push(cur); cur = { lang, text: tok }; }
   }
   if (cur) segs.push(cur);
   return segs.filter(s => s.text.trim().length > 0);

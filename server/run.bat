@@ -8,10 +8,11 @@ setlocal
 cd /d "%~dp0"
 
 if not exist ".venv" (
-    echo [1/4] Создаю виртуальное окружение...
-    python -m venv .venv
+    echo [1/4] Создаю виртуальное окружение (Python 3.10)...
+    REM coqui-tts стабильнее всего на 3.10/3.11; пробуем launcher, иначе обычный python.
+    py -3.10 -m venv .venv 2>nul || py -3.11 -m venv .venv 2>nul || python -m venv .venv
     if errorlevel 1 (
-        echo ОШИБКА: не найден python. Установи Python 3.10 или 3.11 с python.org и поставь галочку "Add to PATH".
+        echo ОШИБКА: не найден Python 3.10/3.11. Установи с python.org и поставь галочку "Add to PATH".
         pause
         exit /b 1
     )

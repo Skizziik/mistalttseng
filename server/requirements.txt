@@ -2,5 +2,7 @@
 # ВАЖНО: torch с поддержкой CUDA ставится отдельно (см. README / run.bat),
 # потому что его нужно брать с правильного индекса под твою видеокарту.
 coqui-tts>=0.24.0
+# transformers 5.x несовместим с XTTS (убрали isin_mps_friendly) — держим 4.x
+transformers>=4.43,<5
 flask>=3.0
 numpy>=1.24

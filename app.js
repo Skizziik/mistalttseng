@@ -93,7 +93,10 @@ async function doListen() {
   setOrb('listening');
   setStatus('слушаю… говори');
   setInterim('');
-  const transcript = await STT.listen({ onInterim: setInterim });
+  const transcript = await STT.listen({
+    onState: (s) => setStatus(s === 'transcribing' ? 'распознаю…' : 'слушаю… говори'),
+    onLevel: (lvl) => { interimEl.textContent = '🎤 ' + '▁▂▃▄▅▆▇█'.charAt(Math.floor(lvl * 7)) || ''; },
+  });
   setInterim('');
   return transcript;
 }
@@ -220,7 +223,7 @@ function openSettings() {
   // заполняем поля
   $('f_key').value = settings.mistralKey;
   $('f_ttsUrl').value = settings.ttsUrl;
-  $('f_recog').value = settings.recogLang;
+  $('f_recog').value = settings.transcribeLang;
   $('f_ratio').value = Math.round((settings.newWordRatio ?? 0.3) * 100);
   $('ratioVal').textContent = $('f_ratio').value;
   populateSpeakers();
@@ -242,7 +245,7 @@ $('saveSettings').addEventListener('click', () => {
     mistralKey: $('f_key').value.trim(),
     ttsUrl: $('f_ttsUrl').value.trim().replace(/\/$/, ''),
     speaker: $('f_speaker').value || settings.speaker,
-    recogLang: $('f_recog').value,
+    transcribeLang: $('f_recog').value,
     newWordRatio: parseInt($('f_ratio').value, 10) / 100,
   });
   closeSettings();

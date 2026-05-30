@@ -3,6 +3,8 @@ import { settings } from './config.js';
 import { NEW_WORD_SYSTEM, newWordDirective } from './prompts.js';
 
 const ENDPOINT = 'https://api.mistral.ai/v1/chat/completions';
+const TRANSCRIBE_ENDPOINT = 'https://api.mistral.ai/v1/audio/transcriptions';
+const TRANSCRIBE_MODEL = 'voxtral-mini-latest';
 
 async function chat(messages, { json = true, maxTokens = 400, temperature = 0.6 } = {}) {
   if (!settings.mistralKey) throw new Error('NO_KEY');
@@ -52,6 +54,27 @@ export async function generateWord(seenList, recentThemes) {
     ru: String(w.ru).trim().toLowerCase(),
     theme: (w.theme || '').toString().trim().toLowerCase(),
   };
+}
+
+// Транскрипция аудио через Voxtral. lang='' => авто-определение (ловит смесь RU+EN).
+export async function transcribe(blob, lang = '') {
+  if (!settings.mistralKey) throw new Error('NO_KEY');
+  const fd = new FormData();
+  fd.append('model', TRANSCRIBE_MODEL);
+  fd.append('file', blob, 'speech.wav');
+  if (lang) fd.append('language', lang);
+
+  const res = await fetch(TRANSCRIBE_ENDPOINT, {
+    method: 'POST',
+    headers: { 'Authorization': 'Bearer ' + settings.mistralKey }, // Content-Type выставит браузер сам
+    body: fd,
+  });
+  if (!res.ok) {
+    const t = await res.text().catch(() => '');
+    throw new Error('Mistral STT ' + res.status + ': ' + t.slice(0, 300));
+  }
+  const data = await res.json();
+  return (data.text || '').trim();
 }
 
 function safeParse(content) {

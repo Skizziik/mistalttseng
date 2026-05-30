@@ -8,7 +8,7 @@ const defaults = {
   model: 'mistral-large-latest',
   ttsUrl: 'http://localhost:8020',
   speaker: 'Ana Florence',
-  recogLang: 'en-US',     // язык распознавания микрофона (ответы — на английском)
+  transcribeLang: '',     // язык для Voxtral: '' = авто (ловит смесь RU+EN), 'en', 'ru'
   newWordRatio: 0.3,      // доля новых слов против повторения выученных
 };
 
